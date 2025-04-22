@@ -2,45 +2,45 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import urllib.request
+from io import StringIO
 
 st.set_page_config(page_title="Struktura Lab MVP", layout="wide")
 
-# 📊 Wczytaj tylko tickery (lekki plik)
+# 📁 Wczytaj lekki plik z tickerami
 @st.cache_data
-def load_tickers():
-    df_t = pd.read_csv("tickery.csv")
-    return df_t
+def load_tickery():
+    df_tickery = pd.read_csv("tickery.csv")
+    tickery_per_kategoria = {
+        k: df_tickery[df_tickery["Kategoria"] == k]["Nazwa"].dropna().unique().tolist()
+        for k in df_tickery["Kategoria"].dropna().unique()
+    }
+    indeksy = df_tickery[df_tickery["Kategoria"] == "indeksy"]["Nazwa"].dropna().unique().tolist()
+    return tickery_per_kategoria, indeksy
 
-df_t = load_tickers()
+tickery_per_kategoria, indeksy = load_tickery()
 
-# Kategorie i tickery
-kategorie = df_t["Kategoria"].dropna().unique()
-tickery_per_kategoria = {
-    k: df_t[df_t["Kategoria"] == k]["Nazwa"].dropna().unique().tolist()
-    for k in kategorie
-}
-
-# 🗓️ Zakres dostępnych dat (na razie sztywno ustawiony od 2020)
+# Zakres dat (ustalone sztywno do 01.01.2020)
 min_date = pd.to_datetime("2020-01-01").date()
-max_date = pd.to_datetime("2025-04-22").date()
+max_date = pd.to_datetime("today").date()
 
 st.title("📈 Struktura Lab - Wybór Portfeli")
 
-# 📅 Parametry analizy
+# Parametry analizy
 with st.sidebar:
-    st.header("🗅️ Parametry analizy")
+    st.header("🗕️ Parametry analizy")
     start_date = st.date_input("Data początkowa", min_value=min_date, max_value=max_date, value=min_date)
     end_date = st.date_input("Data końcowa", min_value=min_date, max_value=max_date, value=max_date)
     kwota_startowa = st.number_input("Kwota startowa (PLN)", min_value=1000, value=10000, step=1000)
 
-# 🔹 Interfejs wyboru portfeli i benchmarku
+# Interfejs wyboru portfeli i benchmarku
 col1, col2, col3 = st.columns(3)
 
 def wybierz_portfel(numer):
     with st.container():
         st.subheader(f"Portfel {numer}")
         tickers = []
-        for kat in ["akcje", "obligacje"]:  # ❌ usuwamy indeksy z portfeli
+        for kat in ["akcje", "obligacje"]:
             if kat in tickery_per_kategoria:
                 selected = st.multiselect(f"{kat.capitalize()} (opcjonalnie)", tickery_per_kategoria[kat], key=f"{kat}{numer}")
                 tickers.extend(selected)
@@ -61,36 +61,69 @@ t2, w2, total2 = wybierz_portfel(2)
 
 with col3:
     st.subheader("Benchmark")
-    benchmark = st.selectbox("Wybierz indeks", tickery_per_kategoria.get("indeksy", []))
+    benchmark = st.selectbox("Wybierz indeks", indeksy)
 
-# 💪 Analizuj po kliknięciu
+# Skład portfeli
+st.subheader("🧬 Skład portfeli")
+col_pie1, col_pie2 = st.columns(2)
+
+with col_pie1:
+    st.markdown("**📈 Portfel 1**")
+    if w1:
+        fig1, ax1 = plt.subplots()
+        wedges1, _, _ = ax1.pie(
+            list(w1.values()),
+            labels=None,
+            autopct='%1.1f%%',
+            startangle=90
+        )
+        ax1.legend(wedges1, list(w1.keys()), title="Tickery", loc="center left", bbox_to_anchor=(1, 0.5))
+        ax1.axis('equal')
+        st.pyplot(fig1)
+
+with col_pie2:
+    st.markdown("**📉 Portfel 2**")
+    if w2:
+        fig2, ax2 = plt.subplots()
+        wedges2, _, _ = ax2.pie(
+            list(w2.values()),
+            labels=None,
+            autopct='%1.1f%%',
+            startangle=90
+        )
+        ax2.legend(wedges2, list(w2.keys()), title="Tickery", loc="center left", bbox_to_anchor=(1, 0.5))
+        ax2.axis('equal')
+        st.pyplot(fig2)
+
+# 📊 Analiza
 if st.button("📊 Analizuj"):
+    @st.cache_data
+    def load_notowania():
+        url = "https://www.dropbox.com/scl/fi/dqjun71e9a5syx2xlexrs/notowania_gpw_full.csv?rlkey=irndgl6x7i06knqsihcqtq5iz&dl=1"
+        response = urllib.request.urlopen(url)
+        df = pd.read_csv(StringIO(response.read().decode()))
+        df["Data"] = pd.to_datetime(df["Data"])
+        return df
+
+    df = load_notowania()
+
+    def przelicz_portfel(tickery, wagi):
+        df_portfel = df[df["Nazwa"].isin(tickery)].copy()
+        df_portfel = df_portfel[df_portfel["Data"].between(str(start_date), str(end_date))]
+        df_portfel = df_portfel.sort_values("Data")
+
+        grouped = df_portfel.groupby(["Data", "Nazwa"]).first().reset_index()
+        pivot = grouped.pivot(index="Data", columns="Nazwa", values="Kurs zamknięcia")
+        pivot = pivot.ffill()
+
+        base_prices = pivot.iloc[0]
+        scaled = pivot / base_prices
+        for t in scaled.columns:
+            scaled[t] = scaled[t] * wagi[t] / 100
+        result = scaled.sum(axis=1) * kwota_startowa
+        return result.reset_index().rename(columns={0: "Wartość"})
+
     if t1 and total1 == 100 and t2 and total2 == 100:
-
-        @st.cache_data
-        def load_notowania():
-            df = pd.read_csv("notowania_gpw_full.csv")
-            df["Data"] = pd.to_datetime(df["Data"])
-            return df
-
-        df = load_notowania()
-
-        def przelicz_portfel(tickery, wagi):
-            df_portfel = df[df["Nazwa"].isin(tickery)].copy()
-            df_portfel = df_portfel[df_portfel["Data"].between(str(start_date), str(end_date))]
-            df_portfel = df_portfel.sort_values("Data")
-
-            grouped = df_portfel.groupby(["Data", "Nazwa"]).first().reset_index()
-            pivot = grouped.pivot(index="Data", columns="Nazwa", values="Kurs zamknięcia")
-            pivot = pivot.ffill()
-
-            base_prices = pivot.iloc[0]
-            scaled = pivot / base_prices
-            for t in scaled.columns:
-                scaled[t] = scaled[t] * wagi[t] / 100
-            result = scaled.sum(axis=1) * kwota_startowa
-            return result.reset_index().rename(columns={0: "Wartość"})
-
         df1 = przelicz_portfel(t1, w1)
         df2 = przelicz_portfel(t2, w2)
         df_b = przelicz_portfel([benchmark], {benchmark: 100})
@@ -108,6 +141,8 @@ if st.button("📊 Analizuj"):
         ax.legend()
         ax.grid(True)
         st.pyplot(fig)
+
+        st.subheader("📊 Metryki porównawcze")
 
         def metryki(zwroty, ref):
             annual = zwroty.mean() * 252
@@ -133,24 +168,8 @@ if st.button("📊 Analizuj"):
         df_met["Portfel 2"] = metryki(r2, r_b)
         df_met["Benchmark"] = metryki(r_b, r_b)
 
-        st.subheader("📊 Metryki porównawcze")
         st.dataframe(df_met.style.format("{:.2%}"))
-
-        st.subheader("🧬 Skład portfeli")
-        col_pie1, col_pie2 = st.columns(2)
-
-        with col_pie1:
-            st.markdown("**📈 Portfel 1**")
-            fig1, ax1 = plt.subplots()
-            ax1.pie(list(w1.values()), labels=list(w1.keys()), autopct='%1.1f%%')
-            ax1.axis('equal')
-            st.pyplot(fig1)
-
-        with col_pie2:
-            st.markdown("**📉 Portfel 2**")
-            fig2, ax2 = plt.subplots()
-            ax2.pie(list(w2.values()), labels=list(w2.keys()), autopct='%1.1f%%')
-            ax2.axis('equal')
-            st.pyplot(fig2)
     else:
         st.warning("Upewnij się, że oba portfele mają przypisane tickery i suma wag to 100%")
+
+
