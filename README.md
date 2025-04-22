@@ -17,9 +17,7 @@
 
 1. Zainstaluj wymagane biblioteki:
 pip install -r requirements.txt
-2. Upewnij się, że plik `notowania_gpw_full.csv` znajduje się w tym samym folderze co `app.py`.
-🔸 Uwaga: Plik notowania_gpw_full.csv nie znajduje się w repozytorium – należy go umieścić ręcznie w tym samym folderze co app.py.
-3. Odpal aplikację:
+2. Odpal aplikację:
 streamlit run app.py
 
 ---
@@ -27,16 +25,17 @@ streamlit run app.py
 ## 📁 Struktura projektu
 
 📦 StrukturaLab
-├── app.py                  # Główna aplikacja Streamlit
-├── requirements.txt        # Lista zależności
-├── .gitignore              # Ignorowane pliki
-└── notowania_gpw_full.csv # Plik z notowaniami (lokalnie, nie w repo)
+├── app.py               ← Główna aplikacja Streamlit
+├── requirements.txt     ← Lista zależności
+├── README.md            ← Opis projektu
+└──  .gitignore           ← Ignorowane pliki (CSV)
+
 
 ---
 
 ## 📚 Źródło danych
 
-Dane pochodzą z publicznie dostępnych archiwalnych notowań **GPW**. Projekt ma charakter edukacyjno-analityczny.
+Dane pochodzą z publicznego archiwum notowań GPW (www.gpw.pl). Projekt ma charakter edukacyjno-analityczny.
 
 ---
 
