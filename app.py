@@ -7,35 +7,26 @@ import urllib.request
 
 st.set_page_config(page_title="Struktura Lab MVP", layout="wide")
 
-# 📁 Wczytywanie danych
+# 📂 Wczytanie tylko tickerów i kategorii
 @st.cache_data
-def load_data():
-    csv_path = "notowania_gpw_full.csv"
-    if not os.path.exists(csv_path):
-        url = "https://www.dropbox.com/scl/fi/dqjun71e9a5syx2xlexrs/notowania_gpw_full.csv?rlkey=irndgl6x7i06knqsihcqtq5iz&dl=1"
-        urllib.request.urlretrieve(url, csv_path)
-    df = pd.read_csv(csv_path)
-    df["Data"] = pd.to_datetime(df["Data"])
-    return df
+def load_tickery():
+    df_tickery = pd.read_csv("tickery.csv")
+    return df_tickery
 
-df = load_data()
-
-kategorie = df["Kategoria"].dropna().unique()
+df_tickery = load_tickery()
+kategorie = df_tickery["Kategoria"].dropna().unique()
 tickery_per_kategoria = {
-    k: df[df["Kategoria"] == k]["Nazwa"].dropna().unique().tolist()
+    k: df_tickery[df_tickery["Kategoria"] == k]["Nazwa"].dropna().unique().tolist()
     for k in kategorie
 }
-
-min_date = df["Data"].min().date()
-max_date = df["Data"].max().date()
 
 st.title("📈 Struktura Lab - Wybór Portfeli")
 
 # 🔽 Formularz wejściowy
 with st.form("parametry_formularza"):
     st.sidebar.header("📅 Parametry analizy")
-    start_date = st.sidebar.date_input("Data początkowa", min_value=min_date, max_value=max_date, value=min_date)
-    end_date = st.sidebar.date_input("Data końcowa", min_value=min_date, max_value=max_date, value=max_date)
+    start_date = st.sidebar.date_input("Data początkowa")
+    end_date = st.sidebar.date_input("Data końcowa")
     kwota_startowa = st.sidebar.number_input("Kwota startowa (PLN)", min_value=1000, value=10000, step=1000)
 
     def wybierz_portfel(numer):
@@ -70,6 +61,18 @@ with st.form("parametry_formularza"):
     submitted = st.form_submit_button("📊 Analizuj")
 
 if submitted:
+    @st.cache_data
+    def load_full_data():
+        csv_path = "notowania_gpw_full.csv"
+        if not os.path.exists(csv_path):
+            url = "https://www.dropbox.com/scl/fi/dqjun71e9a5syx2xlexrs/notowania_gpw_full.csv?rlkey=irndgl6x7i06knqsihcqtq5iz&dl=1"
+            urllib.request.urlretrieve(url, csv_path)
+        df = pd.read_csv(csv_path)
+        df["Data"] = pd.to_datetime(df["Data"])
+        return df
+
+    df = load_full_data()
+
     def przelicz_portfel(tickery, wagi):
         df_portfel = df[df["Nazwa"].isin(tickery)].copy()
         df_portfel = df_portfel[df_portfel["Data"].between(str(start_date), str(end_date))]
@@ -133,7 +136,7 @@ if submitted:
 
         st.dataframe(df_met.style.format("{:.2%}"))
 
-        st.subheader("🧩 Skład portfeli")
+        st.subheader("🧹 Skład portfeli")
         col_pie1, col_pie2 = st.columns(2)
 
         with col_pie1:
