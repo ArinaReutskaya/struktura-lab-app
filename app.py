@@ -2,10 +2,19 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import os
+import urllib.request
 
+# 📥 Automatyczne pobranie pliku z Dropbox, jeśli nie istnieje lokalnie
+csv_path = "notowania_gpw_full.csv"
+if not os.path.exists(csv_path):
+    url = "https://www.dropbox.com/scl/fi/dqjun71e9a5syx2xlexrs/notowania_gpw_full.csv?rlkey=irndgl6x7i06knqsihcqtq5iz&dl=1"
+    urllib.request.urlretrieve(url, csv_path)
+
+# 📄 Konfiguracja strony
 st.set_page_config(page_title="Struktura Lab MVP", layout="wide")
 
-# Wczytaj dane
+# 📆 Wczytaj dane
 @st.cache_data
 def load_data():
     df = pd.read_csv("notowania_gpw_full.csv")
@@ -14,27 +23,28 @@ def load_data():
 
 df = load_data()
 
-# Lista tickerów
+# 🔄 Lista tickerów
 kategorie = df["Kategoria"].dropna().unique()
 tickery_per_kategoria = {
     k: df[df["Kategoria"] == k]["Nazwa"].dropna().unique().tolist()
     for k in kategorie
 }
 
-# Zakres dat
+# 📆 Zakres dat
 min_date = df["Data"].min().date()
 max_date = df["Data"].max().date()
 
-st.title("📈 Struktura Lab - Wybór Portfeli")
+# 🎯 Tytuł
+st.title("📈 Struktura Lab – Wybór Portfeli")
 
-# Parametry analizy
+# 📋 Parametry analizy
 with st.sidebar:
     st.header("📅 Parametry analizy")
     start_date = st.date_input("Data początkowa", min_value=min_date, max_value=max_date, value=min_date)
     end_date = st.date_input("Data końcowa", min_value=min_date, max_value=max_date, value=max_date)
     kwota_startowa = st.number_input("Kwota startowa (PLN)", min_value=1000, value=10000, step=1000)
 
-# Interfejs wyboru portfeli i benchmarku
+# 🧩 Interfejs portfeli
 col1, col2, col3 = st.columns(3)
 
 def wybierz_portfel(numer):
@@ -64,42 +74,9 @@ with col3:
     st.subheader("Benchmark")
     benchmark = st.selectbox("Wybierz indeks", tickery_per_kategoria.get("indeksy", []))
 
-# Skład portfeli
-st.subheader("🧬 Skład portfeli")
-col_pie1, col_pie2 = st.columns(2)
-
-with col_pie1:
-    st.markdown("**📈 Portfel 1**")
-    if w1:
-        fig1, ax1 = plt.subplots()
-        wedges1, _, _ = ax1.pie(
-            list(w1.values()),
-            labels=None,
-            autopct='%1.1f%%',
-            startangle=90
-        )
-        ax1.legend(wedges1, list(w1.keys()), title="Tickery", loc="center left", bbox_to_anchor=(1, 0.5))
-        ax1.axis('equal')
-        st.pyplot(fig1)
-
-with col_pie2:
-    st.markdown("**📉 Portfel 2**")
-    if w2:
-        fig2, ax2 = plt.subplots()
-        wedges2, _, _ = ax2.pie(
-            list(w2.values()),
-            labels=None,
-            autopct='%1.1f%%',
-            startangle=90
-        )
-        ax2.legend(wedges2, list(w2.keys()), title="Tickery", loc="center left", bbox_to_anchor=(1, 0.5))
-        ax2.axis('equal')
-        st.pyplot(fig2)
-
-# Analizuj
+# ▶️ Przycisk "Analizuj"
 if st.button("📊 Analizuj"):
     if t1 and total1 == 100 and t2 and total2 == 100:
-
         def przelicz_portfel(tickery, wagi):
             df_portfel = df[df["Nazwa"].isin(tickery)].copy()
             df_portfel = df_portfel[df_portfel["Data"].between(str(start_date), str(end_date))]
@@ -120,12 +97,30 @@ if st.button("📊 Analizuj"):
         df2 = przelicz_portfel(t2, w2)
         df_b = przelicz_portfel([benchmark], {benchmark: 100})
 
-        # Stopy zwrotu
+        # 📈 Skład portfeli – wykresy kołowe
+        st.subheader("🧩 Skład portfeli")
+        col_pie1, col_pie2 = st.columns(2)
+
+        with col_pie1:
+            st.markdown("**📈 Portfel 1**")
+            fig1, ax1 = plt.subplots()
+            ax1.pie(list(w1.values()), labels=list(w1.keys()), autopct='%1.1f%%')
+            ax1.axis('equal')
+            st.pyplot(fig1)
+
+        with col_pie2:
+            st.markdown("**📉 Portfel 2**")
+            fig2, ax2 = plt.subplots()
+            ax2.pie(list(w2.values()), labels=list(w2.keys()), autopct='%1.1f%%')
+            ax2.axis('equal')
+            st.pyplot(fig2)
+
+        # 🔁 Dzienna stopa zwrotu
         r1 = df1.set_index("Data")["Wartość"].pct_change().dropna()
         r2 = df2.set_index("Data")["Wartość"].pct_change().dropna()
         r_b = df_b.set_index("Data")["Wartość"].pct_change().dropna()
 
-        # Wykres porównawczy
+        # 📉 Wykres porównawczy
         fig, ax = plt.subplots(figsize=(10, 5))
         ax.plot(df1["Data"], df1["Wartość"], label="Portfel 1")
         ax.plot(df2["Data"], df2["Wartość"], label="Portfel 2")
@@ -136,7 +131,7 @@ if st.button("📊 Analizuj"):
         ax.grid(True)
         st.pyplot(fig)
 
-        # Metryki
+        # 📊 Metryki
         st.subheader("📊 Metryki porównawcze")
 
         def metryki(zwroty, ref):
@@ -145,6 +140,7 @@ if st.button("📊 Analizuj"):
             sharpe = annual / std if std != 0 else 0
             drawdown = (1 + zwroty).cumprod().cummax() - (1 + zwroty).cumprod()
             max_dd = drawdown.max()
+
             zwroty.index = pd.to_datetime(zwroty.index)
             years = (1 + zwroty).resample("Y").prod() - 1
             best = years.max()
@@ -165,4 +161,4 @@ if st.button("📊 Analizuj"):
 
         st.dataframe(df_met.style.format("{:.2%}"))
     else:
-        st.warning("Upewnij się, że oba portfele mają przypisane tickery i suma wag to 100%")
+        st.warning("⚠️ Upewnij się, że oba portfele mają przypisane tickery i suma wag to 100%")
