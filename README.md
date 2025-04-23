@@ -37,10 +37,15 @@ Dane można pobrać z Dropbox: https://www.dropbox.com/scl/fi/dqjun71e9a5syx2xle
 📁 Struktura projektu
 
 📦 StrukturaLab
+
 ├── app.py                    ← Główna aplikacja Streamlit
+
 ├── requirements.txt          ← Lista zależności
+
 ├── README.md                 ← Opis projektu
+
 ├── notowania_gpw_full. csv   ← Baza danych (CSV) 
+
 └── tickery.csv               ← Lista tickerów z notowań GPW (CSV)
 
 ---
@@ -58,13 +63,17 @@ Projekt stworzony przez Arina Reutskaya — analityczkę inwestycyjną i miłoś
 ---
 
 🔮 Plany na przyszłość
+
 📅 Uzupełnienie danych o lata 2005–2019 z archiwum GPW
+
 📈 Dodanie analizy wpływu dywidend i systematycznych dopłat do portfela
+
 📊 Obliczanie dodatkowych wskaźników:
 
 Monthly returns, Annual returns, Drawdowns, Alpha / Beta / R²
 
 📤 Eksport wyników do PDF lub CSV
+
 📧 Opcjonalna wysyłka e-mail z raportem
 
 
