@@ -4,10 +4,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
-# 📄 Konfiguracja strony
+# Konfiguracja strony
 st.set_page_config(page_title="Struktura Lab MVP", layout="wide")
 
-# 📁 Wczytaj lekki plik z tickerami
+# Wczytaj lekki plik z tickerami
 @st.cache_data
 def load_tickery():
     df_tickery = pd.read_csv("tickery.csv")
@@ -24,17 +24,17 @@ tickery_per_kategoria, indeksy = load_tickery()
 min_date = pd.to_datetime("2020-01-01").date()
 max_date = pd.to_datetime("today").date()
 
-# 🎯 Tytuł
+# Tytuł
 st.title("📈 Struktura Lab – Wybór Portfeli")
 
-# 📋 Parametry analizy
+# Parametry analizy
 with st.sidebar:
     st.header("📅 Parametry analizy")
     start_date = st.date_input("Data początkowa", min_value=min_date, max_value=max_date, value=min_date)
     end_date = st.date_input("Data końcowa", min_value=min_date, max_value=max_date, value=max_date)
     kwota_startowa = st.number_input("Kwota startowa (PLN)", min_value=1000, value=10000, step=1000)
 
-# 🧩 Interfejs portfeli
+# Interfejs portfeli
 col1, col2, col3 = st.columns(3)
 
 def wybierz_portfel(numer):
@@ -64,7 +64,7 @@ with col3:
     st.subheader("Benchmark")
     benchmark = st.selectbox("Wybierz indeks", indeksy)
 
-# 📊 Analiza
+# Analiza
 if st.button("📊 Analizuj"):
 
     @st.cache_data
